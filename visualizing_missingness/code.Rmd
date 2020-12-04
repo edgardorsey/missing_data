@@ -1,0 +1,340 @@
+---
+title: "Tutorial to Visualize Missing Data"
+author: "Edgar G. Dorsey Trevino"
+date: "11/4/2020"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Introduction
+
+In this tutorial we are going to learn about how to visualize and handle missing data. Missing data is everywhere, and the best way to handle it is to avoid having missing data. However, real world is cruel, and usually we have to bear with missing data. Luckily, R is a very powerful software that has several packages that were design to deal with missing data, and hopefully, at the end of this tutorial you will have solid basis to deal with unwanted missing data. 
+
+
+I will divide this R tutorial in two main section: visualization and imputation. Every section will include an R tutorial and an interpretation of the output. It is expected that for the reader to be familiar with the R package 'tidyverse' and the so-called tidy approach, in which every row represents an observation and every column represents a variable. 
+
+
+# Data Visualization
+
+
+## Summarizing Missing Data
+
+At first glance, it may sound counterintuitive the phrasing "missing data visualization" . . .  I mean, if the data is missing, how can we look at it? I guess we could manually browse for 'NAs' on the data set but with gigantic datasets this task may be a bit onerous. An easier way to explore missing data is using the R package "naniar"; developed by Nicholas Tierney. He believed that missing data can be think of data from another dimension. Inspired by this analogy, Tierney labeled the package 'naniar' as a reference to the move "Narnia" that takes place in another imaginary dimension. 
+
+Before starting, let's remember some concepts and differentiate between vectors and data frames.
+
+* Vector: Is a collection of data represented in R with the function 'c()'
+```{r}
+x <- c('text', 'text2', 'text3', 'text4')
+print(x)
+```
+
+* Data frame: Imagine collecting a lot of vectors and arranging them in columns. THIS IS A DATAFRAME!
+```{r}
+dataframe <- data.frame(
+  var1 = c('text', 'text2', 'text3', 'text4'), #This is a vector
+  var2 = c(1, 2, 3, 4) #This is a vector
+)
+print(dataframe) #When joined together it becomes a data frame
+```
+
+Awesome! You are now an expert differentiating vectors and data frames. Let's dive into the topic and code some more!
+
+
+Let's start by uploading the packages 'naniar' and 'tidyverse' and explore some of its features.  
+```{r warning = F, message=F}
+library(tidyverse)
+library(naniar)
+
+x <- c('text', 'text2', NA, 'NOT NA') 
+
+any_na(x) 
+are_na(x)
+```
+The two function above work only on vectors, not on data frames. The function 'any_na' will return a logical (TRUE or FALSE) to indicate if there is any missing value in the vector as whole. Conversely, the function 'are_na' will return a logical element-wise indicating if the value is missing or not. 
+
+
+The two function above are very useful to explore vectors but most of the times we will be dealing with data frames. Let us explore some function to explore missing data in data frames. 
+```{r}
+data <- read.table('weight_data.txt', header = T) %>% as_tibble()
+
+dim(data)
+names(data)
+print(data)
+
+#Counts the total number of missing values in 'data'
+n_miss(data)
+n_miss(data$weight)
+
+#Counts the total number of complete values in 'data'
+n_complete(data)
+n_complete(data$weight)
+
+#Counts the proportion of complete and missing values in 'data'
+prop_miss(data)
+prop_complete(data$weight)
+```
+Our data frame consists of 100 patients and 3 variables (ID, weight, and height). The functions above can be used to detect either missing or complete values in the whole data frame or in specific variable. For instance, when using the function 'n_miss()', the output tells us that in the whole data frame there is a total of 30 missing values, of which 15 missing values are within the variable 'weight'. 
+
+
+You now know a lot about your data, kudos! However, imagine having a data set of 30 variables. . . Gosh! Exploring every variable would be very time consuming. Let's see how we can deal with this problem in a more efficient way. 
+
+
+The following functions provide you with a summary of missing data of either all variables or rows. For the following examples we will use the data set already installed in R named 'airquality'.
+```{r}
+airquality <- as_tibble(airquality)
+print(airquality)
+
+miss_var_summary(airquality) #column-wise
+miss_case_summary(airquality) #row-wise
+```
+Both functions provide a data frame with the first row being either the variable name or the row number. The column 'n_miss' represents the number of values that are missing, and the column 'pct_miss' represents the percentage of the previous column. Therefore, the output of the 'miss_var_summary' function, indicates that the variable 'Ozone' has 37 missing values and that it represents 24.2% of the total number of values (153) in the variable Ozone (37 / 153 = 0.242). Conversely, the output of the function 'miss_case_summary' tells us that the row number 5 has 2 missing values that represents 33.3% of the total number of values (3) in that column (2 / 3 = 0.333).
+
+
+We can apply the same logic as before for the following functions that help us summarize missingness of variables or rows grouped by a given variable. 
+```{r}
+airquality %>% 
+  group_by(Month) %>% 
+  miss_var_table()
+
+airquality %>% 
+  group_by(Month) %>% 
+  miss_case_table()
+```
+
+
+Thus far have learned what are missing values, how to count them, and how to summarize them. Now, let's focus on some of the built-in visualizations that come with 'naniar' to explore our data visually. 
+
+
+## Visualizing Summary of Missing Data
+Visualizing our missing data can provide rapid insights about our data. The package 'naniar' provides a friendly family of missing data visualizations. Each visualization will correspond to a summary statistic seen before. And although you can always summarize missingness using the functions above, this task becomes repetitive, cumbersome, and your code starts getting dirty very quickly when analyzing multiple variables. 
+
+
+* Lesson Overview
+  + How to get a bird's view of the data
+  + How to look at missing values of variables and cases (rows)
+  + How to visualize missingness across groups in the data
+  
+  
+For this section, we will need to upload the package 'visdat'.
+```{r}
+library(visdat)
+```
+
+
+### How to get a bird's view of the data
+The following function provides a heat map that allows you to quickly look at the missing and complete values of your data. At the top of the plot you can see a summary statistic indicating the percentage of missingness of a particular variable; this can be turned off with the argument 'show_perc_col = F'.
+```{r}
+vis_miss(airquality)
+vis_miss(airquality, show_perc_col = F)
+```
+
+
+You can also cluster the data so you can identify patterns of missingness occurring in different variables.
+```{r}
+vis_miss(airquality, cluster = T)
+```
+
+
+### How to look at missing values of variables and cases (rows)
+The following functions provide a visualization of missingness of variables and cases. You will note that y-axis is ordered based on the amount of missingness
+```{r}
+gg_miss_var(riskfactors)
+gg_miss_case(riskfactors) #You can turn off the ordered of the y-axis 
+                           #with the argument order_cases = F
+```
+
+
+### How to visualize missingness across groups in the data
+Sometimes, for categorical variables, missingness can occur more in a given level than the rest of the levels, suggesting a pattern. To visualize the missingness within each level of a categorical variable you use the argument 'facet' of the gg_miss_var function and specify the variable you want to facet. 
+```{r}
+gg_miss_var(riskfactors, facet = education)
+```
+
+
+Moreover, missing values may occur in patterns (i.e., missing value causes another missing value.) To detect this, otherwise hidden pattern, we can use the so-called upset plot. 
+```{r}
+gg_miss_upset(airquality)
+```
+The message conveyed by this plot is that missing values in 'Ozone' are 35, in 'Solar' are 5, and in both variables only 2 missing values were detected. 
+
+
+Alternatively, you can use a heat map where the x-axis is the categories of the variable and the y-axis is the rest of the variables.
+```{r}
+gg_miss_fct(riskfactors, fct = marital)
+```
+
+
+# Testing Missing Data Dependence
+Once we have identified our missing values, the next step is to decide what to do with these missing values. Available options include either delete them or impute the data. Each approach has its pros and cons, but before we decide, we need to evaluate missing data dependence. 
+
+
+Missing data dependence is defined by the relationship that missing data has with other missing data: each type of missing data dependence has its implications.
+
+* Types of missing data dependence: 
+  + Missing Completely at Random (MCAR): Missingness has no association with any data you have observed, or not observed.
+    + Imputation is advised
+  + Missing at Random (MAR): missingness depends on data observed, but not on data unobserved
+    + Imputation is advised but a very conservative approach is recommended
+  + Missing Not at Random (MNAR): Missingness of the response is related to an unobserved value relevant to the assessment of interest.
+    + Imputation or deletion is not advised as it would introduce bias
+  
+    
+It is noteworthy to mention that identifying what type of missing data dependence is present in our data is a complicated task. Visualizing our data is a good place to start but it is not definitive, and thus, a peruse analysis is advised. 
+```{r}
+#MCAR
+oceanbuoys %>% 
+  arrange(wind_ew) %>%
+  vis_miss()
+
+#MAR 
+oceanbuoys %>% 
+  arrange(year) %>% 
+  vis_miss()
+
+#MNAR
+oceanbuoys %>% 
+  arrange(wind_ew) %>% 
+  mutate(id = row_number(), 
+         id = case_when(id < 368 ~ 0, T ~ 1),
+         wind_ew = na_if(id, 0), 
+         wind_ns = na_if(id, 1)) %>% 
+  select(-id) %>% 
+  vis_miss()
+```
+
+
+Amazing!!! You are now an expert in visualizing your missing data in a summary format and determine its dependency. It is time to take things to the next rung in the ladder. 
+
+
+# Missing Data Workflows
+Often times, we are interested in visualizing a specific variable stratified based on the missingness of another variable. To do this, we first must specify which variables have missing values. A possible approach is to mutate on the interested variable to determine whether or not a cell contains a missing value. However, this approach is cumbersome and time consuming. An easier approach is to use a shadow matrix. 
+
+It is called a shadow matrix means to replicate the data set but filling out the values based on whether or not it contains missing values. We can do this by using the function 'as_shadow'.
+```{r}
+print(airquality)
+as_shadow(airquality)
+```
+Comparing the data sets, we can see that when a missing value is absent, the shadow matrix fill that value with !NA, whereas for missing values it fills it with NA. But, WHERE IS OUR DATA?!
+
+We need a function that binds our shadow matrix with our original data set, and thus, create the so-called nabular data set. Let's create it!
+
+```{r}
+bind_shadow(airquality) #Notice the new names of the variables, they all end with '_NA'
+bind_shadow(airquality, only_miss = T) #Only attach variables with missing variables
+```
+
+With this data set, we can start doing very fancy explorations!
+
+Now that you created a nabular data set, let's calculate summary statistics based on the missingness of another variable. 
+```{r}
+oceanbuoys %>% 
+  bind_shadow() %>%
+  janitor::clean_names() %>% 
+  group_by(humidity_na) %>% 
+  summarize(
+    wind_ew_mean = mean(wind_ew), 
+    wind_we_sd = sd(wind_ew), 
+    n_obs = n() #This function counts the number of observations
+  )
+```
+
+
+Now let's explore how variables vary as other variables are missing. 
+
+
+For instance, if we look at this density plot, we cannot differentiate the distribution of 'Temp' based on the missingness of 'Ozone'. However, with a nabular data we can!
+```{r}
+ggplot(airquality, aes(Temp)) +
+  geom_density(color = 'black', fill = 'orange', alpha = 0.6)
+
+airquality %>% 
+  bind_shadow() %>% 
+  janitor::clean_names() %>% 
+  ggplot(aes(temp, fill = ozone_na)) +
+  geom_density(color = 'black', alpha = 0.5)
+```
+We can determine based on the plot that the values of 'Temp' do not change much if 'Ozone' is missing or not. You can extend this knowledge for other types of plots as well. 
+```{r}
+airquality %>% 
+  bind_shadow() %>% 
+  janitor::clean_names() %>% 
+  ggplot(aes(ozone_na, temp)) +
+  geom_boxplot()
+
+airquality %>% 
+  bind_shadow() %>% 
+  janitor::clean_names() %>% 
+  ggplot(aes(temp)) +
+  geom_density(fill = 'orange', alpha = 0.5) +
+  facet_wrap(~ozone_na)
+
+airquality %>% 
+  bind_shadow() %>% 
+  janitor::clean_names() %>% 
+  ggplot(aes(temp, wind, color = ozone_na)) +
+  geom_point(size = 3)
+
+airquality %>% 
+  bind_shadow() %>% 
+  janitor::clean_names() %>% 
+  ggplot(aes(temp, wind)) +
+  geom_point(size = 3) +
+  facet_wrap(~ozone_na)
+```
+
+
+## Visualizing Data in Two Dimensions
+Missing data is often ignored in scatter plots. The ggplot ecosystem is very nice and prints a warning in the console when missing data has been removed. But, what if we want to see what is the distribution of missing data in a scatter plot. Well, we can do this without creating a nabular data manually. The function geom_miss_point layer do that for us automatically. And the best part is that it is still a ggplot object so you can manipulate it in various ways!
+```{r}
+airquality %>% 
+  janitor::clean_names() %>% 
+  ggplot(aes(ozone, solar_r)) +
+  geom_miss_point(size = 3)
+```
+
+
+FANTASTIC JOB!!!! 
+
+
+
+
+YOU ARE NOW AN EXPERT IN VISUALIZING MISSING DATA IN VARIOUS WAYS. YOU HAVE LEARNED A LOT. FEEL GREAT WITH YOURSELF BECAUSE YOU ARE AMAZING!
+
+
+
+
+NEXT STEP IS TO IMPUTE AND VISUALIZE THE IMPUTATIONS TO ASSESS ITS ACCURACY. 
+
+
+
+
+MUCHAS GRACIAS!!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
